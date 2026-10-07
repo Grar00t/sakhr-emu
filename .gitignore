@@ -1,0 +1,28 @@
+# Object, executable, and generated files
+*.o
+*.obj
+*.a
+*.so
+*.elf
+*.bin
+*.lst
+*.map
+*.d
+sakhr-emu
+z80dec
+
+# Captures and local assets
+*.wav
+*.ppm
+*.raw
+roms/
+firmware/
+
+# Debug/editor
+core
+core.*
+*.dSYM/
+.vscode/
+.idea/
+*.swp
+compile_commands.json
