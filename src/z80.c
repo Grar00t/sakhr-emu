@@ -21,6 +21,7 @@ typedef struct {
     u8 len;
     char *o;
     const char *ix;     /* NULL, "ix" or "iy" */
+    int prefixes;      /* consumed DD/FD prefixes */
     int t, tk, extra;   /* base T, taken T (absolute, same scale as t), index adjust */
 } D;
 
@@ -100,16 +101,14 @@ static void fin(D *d, Z80Insn *in) {
 
 void z80_decode(const Z80 *z, u16 pc, Z80Insn *in) {
     D d; u8 op, x, y, zz, p, q;
-    d.z = z; d.pc = pc; d.len = 0; d.o = in->text; d.ix = 0; d.extra = 0; tm(&d, 4, 0);
+    d.z = z; d.pc = pc; d.len = 0; d.o = in->text; d.ix = 0; d.prefixes = 0; d.extra = 0; tm(&d, 4, 0);
     op = nb(&d);
-    if (op == 0xDD || op == 0xFD) {
+    while (op == 0xDD || op == 0xFD) {
         d.ix = op == 0xDD ? "ix" : "iy";
-        nx = z->bus.read(z->bus.ctx, d.pc);
-        if (nx == 0xDD || nx == 0xFD || nx == 0xED) {          /* prefix is a 4T NOP; next byte re-decoded */
-            ps(&d, "nop"); d.ix = 0; fin(&d, in); return;
-        }
+        d.prefixes++;
         op = nb(&d);
     }
+    if (op == 0xED) d.ix = 0;
     x = op >> 6; y = (op >> 3) & 7; zz = op & 7; p = y >> 1; q = y & 1;
     if (op == 0xCB) { do_cb(&d); fin(&d, in); return; }
     if (op == 0xED) { do_ed(&d); fin(&d, in); return; }
