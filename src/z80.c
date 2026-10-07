@@ -91,7 +91,7 @@ static void do_ed(D *d) {
 }
 
 static void fin(D *d, Z80Insn *in) {
-    int pre = d->ix ? 4 : 0;
+    int pre = d->prefixes * 4;
     *d->o = 0;
     in->len = d->len;
     in->t = (u8)(d->t + pre + d->extra);
@@ -99,7 +99,7 @@ static void fin(D *d, Z80Insn *in) {
 }
 
 void z80_decode(const Z80 *z, u16 pc, Z80Insn *in) {
-    D d; u8 op, x, y, zz, p, q, nx;
+    D d; u8 op, x, y, zz, p, q;
     d.z = z; d.pc = pc; d.len = 0; d.o = in->text; d.ix = 0; d.extra = 0; tm(&d, 4, 0);
     op = nb(&d);
     if (op == 0xDD || op == 0xFD) {
