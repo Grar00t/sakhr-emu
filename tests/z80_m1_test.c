@@ -37,10 +37,8 @@ static long sys3(long nr, long a, long b, long c) {
 }
 
 __attribute__((noreturn)) static void finish(int code) {
-    static const char ok[] = "M1 OK
-";
-    static const char fail[] = "M1 FAIL
-";
+    static const char ok[] = "M1 OK\n";
+    static const char fail[] = "M1 FAIL\n";
     const char *msg = code == 0 ? ok : fail;
     unsigned len = code == 0 ? (unsigned)(sizeof ok - 1U) : (unsigned)(sizeof fail - 1U);
     (void)sys3(1, 1, (long)msg, (long)len);
@@ -69,8 +67,7 @@ static int load_rom(u8 out[ROM_SIZE]) {
         n += (unsigned)r;
     }
     (void)sys3(3, fd, 0, 0);
-    if (n != ROM_SIZE * 2U + 1U || buf[n - 1U] != (u8)'
-') return 3;
+    if (n != ROM_SIZE * 2U + 1U || buf[n - 1U] != (u8)'\n') return 3;
     for (i = 0; i < ROM_SIZE; i++) {
         u8 hi, lo;
         if (hex_digit(buf[i * 2U], &hi) != 0 || hex_digit(buf[i * 2U + 1U], &lo) != 0) return 4;
@@ -172,11 +169,4 @@ __attribute__((noreturn, used)) static void test_main(void) {
     finish(run_test());
 }
 
-__asm__(".text
-.globl _start
-_start:
- xor %ebp,%ebp
- and $-16,%rsp
- call test_main
- ud2
-");
+__asm__(".text\n.globl _start\n_start:\n xor %ebp,%ebp\n and $-16,%rsp\n call test_main\n ud2\n");
