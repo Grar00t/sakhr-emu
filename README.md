@@ -1,60 +1,70 @@
 # Sakhr-EMU
 
-Cycle-accurate Sakhr MSX emulator. C + asm. Zero dependencies.
+Sakhr/MSX emulation core in C and x86-64 assembly with no external runtime libraries.
 
 ## Scope
 
-- Linux x86-64
-- Explicit, trace-verified Sakhr/MSX machine profiles
-- Z80A including observable undocumented NMOS behavior
-- TMS9918A-class VDP, AY-3-8910-compatible PSG, MSX slot/PPI/keyboard/cartridge bus
-- Integer audio synthesis and direct host backends: raw X11 or KMS/DRM, ALSA PCM
+- Linux x86-64 host for the current bring-up binaries
+- Explicit Sakhr/MSX machine profiles
+- Z80 execution with ordered bus transactions
+- TMS9918A-class VDP, AY-3-8910-compatible PSG, MSX slot/PPI/keyboard/cartridge bus as later milestones
 - No SDL, libretro, LLVM, or external emulation framework
-
-A compatibility run is not called cycle-accurate unless the relevant device/profile behavior has a passing transaction-level trace suite. `docs/architecture.md` and `docs/timing_model.md` identify profile facts that remain to be verified rather than fabricating them.
 
 ## Current state
 
-The committed implementation is a stage-1 freestanding Z80 reset-vector decoder. It reads the first 256 bytes of a supplied image, decodes and prints 20 instructions with byte counts and T-state classes. It is not yet an instruction executor or a runnable emulator.
+M1 is executable. `z80_step()` runs the exact reset-vector program specified in `docs/milestones.md`, performs every memory access through `Z80Bus`, records transfer completion time in master ticks, writes `O` and `K` to RAM at `0xC000` and `0xC001`, and enters HALT with PC fixed at `0x000C` by the project contract.
 
-The decoder covers base, CB, ED, DD/FD and DDCB/FDCB decode forms, including SLL and indexed-CB register-copy disassembly. The executor, flags, ordered M-cycle bus traffic and interrupts are next.
+The M1 executor deliberately implements only the instructions exercised by the committed M1 ROM: `DI`, `LD SP,nn`, `LD HL,nn`, `LD (HL),n`, `INC HL`, and `HALT`. Any other opcode returns `Z80_STEP_ERR_UNSUPPORTED`; no unsupported opcode is treated as a NOP.
 
-## Build
+The existing `z80_decode()` diagnostic decoder remains available separately. M1 does not claim a complete Z80 implementation, MSX compatibility, or cycle accuracy for untested instructions/devices.
 
-Requires a C11 compiler and `make`.
+## M1 build and verification
 
+Requires a C11 compiler, GNU-compatible x86-64 assembler syntax accepted by that compiler, and `make`. No libc is linked.
+
+```sh
+make clean
+make test-m1
 ```
-make
+
+Expected stdout from the executed test binary:
+
+```text
+M1 OK
 ```
 
-The target is `z80dec`. It is built `-static -nostdlib`; the demo uses Linux x86-64 raw syscalls only.
+The test fails unless all of these are exact:
 
-## Run
+- decoded ROM bytes: `F3 31 00 F0 21 00 C0 36 4F 23 36 4B 76`
+- RAM: `0xC000=0x4F`, `0xC001=0x4B`
+- CPU: `PC=0x000C`, `SP=0xF000`, `HL=0xC001`, `R=7`, halted
+- elapsed time: `54` Z80 T-states = `162` master ticks
+- ordered bus trace: every fetch, immediate read, and RAM write matches `tests/m1_ok.trace`
 
-```
+`make run-m1` runs the same freestanding artifact directly. The binary uses Linux x86-64 raw syscalls only for loading the ROM fixture, printing the final result, and exiting; `z80_step()` itself performs no host call.
+
+## Existing decoder
+
+```sh
+make z80dec
 ./z80dec path/to/your-image.bin
-# or
-make run ROM=path/to/your-image.bin
 ```
 
-The first 20 decoded instructions begin at reset vector `0x0000`. Bytes after offset `0x00FF` read as `0xFF` in this diagnostic target.
-
-Example output shape:
-
-```
-0000  F3           di                            T=4
-0001  31 00 F0     ld sp,0xF000                  T=10
-```
+`z80dec` reads the first 256 bytes of an image and prints decoded instructions with timing classes. It is diagnostic code and is not used to satisfy M1 execution.
 
 ## Layout
 
-```
-src/z80.[ch]          CPU state and diagnostic decoder
-src/z80_opcodes.h     x/y/z/p/q metadata
-src/z80.c             raw-syscall demo entry point under Z80_DECODE_DEMO
-docs/architecture.md  device ownership, bus, Z80 execution/test plan
-docs/timing_model.md  master clock, scheduler decision, VDP plan
-docs/milestones.md    M1..M3 inputs and acceptance tests
+```text
+src/z80.h              CPU state, bus contract, executor result codes
+src/z80_exec.c         bounded M1 instruction executor and timing
+src/z80.c              diagnostic decoder and raw-syscall decode demo
+src/z80_opcodes.h      decoder metadata
+tests/m1_ok.rom        exact M1 reset-vector program
+tests/m1_ok.trace      exact expected ordered/timestamped bus trace
+tests/z80_m1_test.c    freestanding M1 acceptance binary
+docs/milestones.md     executable milestone contracts
+docs/architecture.md   device ownership and future machine structure
+docs/timing_model.md   master-clock and scheduler design
 ```
 
 ## License

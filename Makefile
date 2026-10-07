@@ -1,17 +1,28 @@
 CC      ?= cc
-CFLAGS  := -std=c11 -O2 -Wall -Wextra -Wpedantic -ffreestanding -fno-stack-protector \
-           -fno-pic -no-pie
+CFLAGS  := -std=c11 -O2 -Wall -Wextra -Wpedantic -Werror -ffreestanding -nostdlib \
+           -fno-stack-protector -fno-pic -no-pie
 LDFLAGS := -static -nostdlib
 
-all: z80dec
+all: z80dec sakhr-m1
 
 z80dec: src/z80.c src/z80.h src/z80_opcodes.h
 	$(CC) $(CFLAGS) $(LDFLAGS) -DZ80_DECODE_DEMO -o $@ src/z80.c
 
-tests/z80_decode_test: tests/z80_decode_test.c src/z80.c src/z80.h src/z80_opcodes.h\n\t$(CC) -std=c11 -O2 -Wall -Wextra -Wpedantic -Werror -Isrc -o $@ tests/z80_decode_test.c src/z80.c\n\ntest: tests/z80_decode_test\n\t./tests/z80_decode_test\n\nrun: z80dec
+sakhr-m1: tests/z80_m1_test.c tests/m1_ok.trace tests/m1_ok.rom src/z80_exec.c src/z80.h
+	$(CC) $(CFLAGS) $(LDFLAGS) -Isrc -o $@ tests/z80_m1_test.c src/z80_exec.c
+
+test-m1: sakhr-m1
+	./sakhr-m1
+
+test: test-m1
+
+run-m1: sakhr-m1
+	./sakhr-m1
+
+run: z80dec
 	./z80dec $(ROM)
 
 clean:
-	rm -f z80dec sakhr-emu tests/z80_decode_test
+	rm -f z80dec sakhr-m1
 
-.PHONY: all test run clean
+.PHONY: all test test-m1 run run-m1 clean
